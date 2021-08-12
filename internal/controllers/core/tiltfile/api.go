@@ -282,6 +282,7 @@ func toUIResourceObjects(tf *v1alpha1.Tiltfile, tlr *tiltfile.TiltfileLoadResult
 						v1alpha1.AnnotationManifest: m.Name.String(),
 					},
 				},
+				ResourceDependencies: m.ResourceDependencies,
 			}
 			result[name] = r
 		}

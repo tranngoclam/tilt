@@ -178,6 +178,9 @@ type UIResourceStatus struct {
 	//
 	// +optional
 	Order int32 `json:"order,omitempty" protobuf:"varint,15,opt,name=order"`
+
+	// Dependencies
+	ResourceDependencies []string `json:"resourceDependencies,omitempty" protobuf:"bytes,16,rep,name=resourceDependencies"`
 }
 
 // UIResource implements ObjectWithStatusSubResource interface.
