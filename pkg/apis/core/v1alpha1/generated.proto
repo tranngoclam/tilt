@@ -1741,6 +1741,9 @@ message UIResourceStatus {
   //
   // +optional
   optional int32 order = 15;
+
+  // Dependencies
+  repeated string resourceDependencies = 16;
 }
 
 // UIResourceTargetSpec represents the spec of a build or deploy that a resource summarizes.

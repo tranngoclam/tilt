@@ -418,6 +418,7 @@ declare namespace Proto {
      * +optional
      */
     order?: number;
+    resourceDependencies?: string[];
   }
   export interface v1alpha1UIResourceSpec {}
   export interface v1alpha1UIResourceLocal {

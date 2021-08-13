@@ -2507,6 +2507,11 @@ func (in *UIResourceStatus) DeepCopyInto(out *UIResourceStatus) {
 		*out = make([]UIResourceTargetSpec, len(*in))
 		copy(*out, *in)
 	}
+	if in.ResourceDependencies != nil {
+		in, out := &in.ResourceDependencies, &out.ResourceDependencies
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
