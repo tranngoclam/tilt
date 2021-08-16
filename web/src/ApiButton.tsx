@@ -2,11 +2,18 @@ import { Icon, SvgIcon } from "@material-ui/core"
 import moment from "moment"
 import React, { useState } from "react"
 import { convertFromNode, convertFromString } from "react-from-dom"
+import styled from "styled-components"
 import { InstrumentedButton } from "./instrumentedComponents"
 
 type UIButton = Proto.v1alpha1UIButton
 
-type ApiButtonProps = { className?: string; button: UIButton }
+type ApiButtonProps = {
+  className?: string
+  button: UIButton
+  // Whether to show text on the button
+  // (Or, if true and `button` has no text, show the text "Button" instead)
+  showText: boolean
+}
 
 type ApiIconProps = { iconName?: string; iconSVG?: string }
 
@@ -18,6 +25,7 @@ const svgElement = (src: string): React.ReactElement => {
   }) as SVGSVGElement
   return convertFromNode(node) as React.ReactElement
 }
+export const ButtonText = styled.span``
 
 export const ApiIcon: React.FC<ApiIconProps> = (props) => {
   if (props.iconSVG) {
@@ -74,6 +82,16 @@ export const ApiButton: React.FC<ApiButtonProps> = (props) => {
       setLoading(false)
     }
   }
+
+  const buttonText = props.showText ? (
+    <ButtonText>{props.button.spec?.text ?? "Button"}</ButtonText>
+  ) : null
+  let iconName = props.button.spec?.iconName
+  // if there's no text *or* icon, pick an icon to show so that the button has *some* content
+  if (!buttonText && !iconName) {
+    iconName = "smart_button"
+  }
+
   // button text is not included in analytics name since that can be user data
   return (
     <InstrumentedButton
@@ -82,15 +100,9 @@ export const ApiButton: React.FC<ApiButtonProps> = (props) => {
       disabled={loading || props.button.spec?.disabled}
       className={props.className}
     >
-      {props.children || (
-        <>
-          <ApiIcon
-            iconName={props.button.spec?.iconName}
-            iconSVG={props.button.spec?.iconSVG}
-          />
-          {props.button.spec?.text ?? "Button"}
-        </>
-      )}
+      <ApiIcon iconName={iconName} iconSVG={props.button.spec?.iconSVG} />
+      {buttonText}
+      {props.children}
     </InstrumentedButton>
   )
 }

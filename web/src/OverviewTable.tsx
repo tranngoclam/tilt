@@ -4,7 +4,7 @@ import TimeAgo from "react-timeago"
 import styled from "styled-components"
 import { buildAlerts, runtimeAlerts } from "./alerts"
 import { AnalyticsAction, incr } from "./analytics"
-import { ApiIcon, buttonsForResource } from "./ApiButton"
+import { buttonsForResource } from "./ApiButton"
 import { ReactComponent as CheckmarkSvg } from "./assets/svg/checkmark.svg"
 import { ReactComponent as CopySvg } from "./assets/svg/copy.svg"
 import { ReactComponent as LinkSvg } from "./assets/svg/link.svg"
@@ -343,12 +343,7 @@ function TableTriggerModeColumn({ row }: CellProps<RowValues>) {
 function TableWidgetsColumn({ row }: CellProps<RowValues>) {
   const buttons = row.original.buttons.map((b: UIButton) => {
     let content = (
-      <CustomActionButton key={b.metadata?.name} button={b}>
-        <ApiIcon
-          iconName={b.spec?.iconName || "smart_button"}
-          iconSVG={b.spec?.iconSVG}
-        />
-      </CustomActionButton>
+      <CustomActionButton key={b.metadata?.name} button={b} showText={true} />
     )
 
     if (b.spec?.text) {
