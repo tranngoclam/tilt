@@ -16,12 +16,15 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/tilt-dev/wmclient/pkg/analytics"
+	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	tiltanalytics "github.com/tilt-dev/tilt/internal/analytics"
 	"github.com/tilt-dev/tilt/internal/cloud"
+	"github.com/tilt-dev/tilt/internal/controllers/apicmp"
 	"github.com/tilt-dev/tilt/internal/hud/webview"
 	"github.com/tilt-dev/tilt/internal/store"
+	"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1"
 	"github.com/tilt-dev/tilt/pkg/assets"
 	"github.com/tilt-dev/tilt/pkg/model"
 	proto_webview "github.com/tilt-dev/tilt/pkg/webview"
@@ -220,6 +223,28 @@ func (s *HeadsUpServer) HandleSetTiltfileArgs(w http.ResponseWriter, req *http.R
 	err := jsoniter.NewDecoder(req.Body).Decode(&args)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error parsing JSON payload: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	ctx := req.Context()
+	nn := types.NamespacedName{Name: model.MainTiltfileManifestName.String()}
+	var tf v1alpha1.Tiltfile
+	err = s.ctrlClient.Get(ctx, nn, &tf)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error updating apiserver: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if apicmp.DeepEqual(tf.Spec.Args, args) {
+		return
+	}
+
+	update := tf.DeepCopy()
+	update.Spec.Args = args
+	err = s.ctrlClient.Update(ctx, update)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error updating apiserver: %v", err), http.StatusInternalServerError)
+		return
 	}
 
 	s.store.Dispatch(SetTiltfileArgsAction{args})

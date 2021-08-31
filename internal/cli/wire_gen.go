@@ -7,16 +7,8 @@ package cli
 
 import (
 	"context"
-	"time"
-
 	"github.com/google/wire"
 	"github.com/jonboulle/clockwork"
-	"github.com/tilt-dev/wmclient/pkg/dirs"
-	"go.opentelemetry.io/otel/sdk/trace"
-	version2 "k8s.io/apimachinery/pkg/version"
-	"k8s.io/client-go/tools/clientcmd/api"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/tilt-dev/tilt/internal/analytics"
 	"github.com/tilt-dev/tilt/internal/build"
 	client2 "github.com/tilt-dev/tilt/internal/cli/client"
@@ -76,6 +68,12 @@ import (
 	"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1"
 	"github.com/tilt-dev/tilt/pkg/logger"
 	"github.com/tilt-dev/tilt/pkg/model"
+	"github.com/tilt-dev/wmclient/pkg/dirs"
+	"go.opentelemetry.io/otel/sdk/trace"
+	version2 "k8s.io/apimachinery/pkg/version"
+	"k8s.io/client-go/tools/clientcmd/api"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
 
 // Injectors from wire.go:
@@ -321,7 +319,7 @@ func wireCmdUp(ctx context.Context, analytics3 *analytics.TiltAnalytics, cmdTags
 	}
 	compositeBuildAndDeployer := engine.NewCompositeBuildAndDeployer(buildOrder, traceTracer)
 	buildController := engine.NewBuildController(compositeBuildAndDeployer)
-	configsController := configs.NewConfigsController(deferredClient, buildSource)
+	configsController := configs.NewConfigsController(deferredClient)
 	triggerQueueSubscriber := configs.NewTriggerQueueSubscriber(deferredClient)
 	eventWatcher := dcwatch.NewEventWatcher(dockerComposeClient, localClient)
 	dockerComposeLogManager := runtimelog.NewDockerComposeLogManager(dockerComposeClient)
@@ -527,7 +525,7 @@ func wireCmdCI(ctx context.Context, analytics3 *analytics.TiltAnalytics, subcomm
 	}
 	compositeBuildAndDeployer := engine.NewCompositeBuildAndDeployer(buildOrder, traceTracer)
 	buildController := engine.NewBuildController(compositeBuildAndDeployer)
-	configsController := configs.NewConfigsController(deferredClient, buildSource)
+	configsController := configs.NewConfigsController(deferredClient)
 	triggerQueueSubscriber := configs.NewTriggerQueueSubscriber(deferredClient)
 	eventWatcher := dcwatch.NewEventWatcher(dockerComposeClient, localClient)
 	dockerComposeLogManager := runtimelog.NewDockerComposeLogManager(dockerComposeClient)

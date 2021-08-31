@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -127,44 +126,6 @@ func TestErrorLog(t *testing.T) {
 	assert.Contains(f.T(), f.st.out.String(), "ERROR LEVEL: The goggles do nothing!")
 }
 
-func TestExtensionTiltfile(t *testing.T) {
-	f := newCCFixture(t)
-	defer f.TearDown()
-
-	// Initialize the Main tiltfile
-	f.st.WithState(func(es *store.EngineState) {
-		es.UserConfigState = model.UserConfigState{
-			Args: []string{"fe"},
-		}
-	})
-	f.addManifest("fe")
-
-	bar := manifestbuilder.New(f, "fe").WithK8sYAML(testyaml.SanchoYAML).Build()
-	f.setManifestResult(bar)
-	f.onChange()
-	f.popQueue()
-	f.popQueue()
-
-	// Add an extension tiltfile.
-	f.st.WithState(func(es *store.EngineState) {
-		tiltfiles.HandleTiltfileUpsertAction(es, tiltfiles.TiltfileUpsertAction{
-			Tiltfile: &v1alpha1.Tiltfile{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "ext",
-				},
-				Spec: v1alpha1.TiltfileSpec{
-					Path: "extpath",
-				},
-			},
-		})
-	})
-	f.onChange()
-
-	entry := f.bs.Entry()
-	assert.Equal(t, "ext", string(entry.Name))
-	assert.Equal(t, model.UserConfigState{}, entry.UserConfigState)
-}
-
 type testStore struct {
 	ctx context.Context
 	*store.TestingStore
@@ -239,7 +200,7 @@ func newCCFixture(t *testing.T) *ccFixture {
 		workqueue.NewItemExponentialFailureRateLimiter(time.Millisecond, time.Millisecond))
 	buildSource := ctrltiltfile.NewBuildSource()
 	tfr := ctrltiltfile.NewReconciler(st, tfl, d, tc, v1alpha1.NewScheme(), buildSource, store.EngineModeUp)
-	cc := NewConfigsController(tc, buildSource)
+	cc := NewConfigsController(tc)
 	ctx, _, _ := testutils.CtxAndAnalyticsForTest()
 	ctx, cancel := context.WithCancel(ctx)
 	st.ctx = ctx

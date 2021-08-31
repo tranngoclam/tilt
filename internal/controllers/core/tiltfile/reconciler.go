@@ -33,14 +33,15 @@ import (
 )
 
 type Reconciler struct {
-	mu           sync.Mutex
-	st           store.RStore
-	tfl          tiltfile.TiltfileLoader
-	dockerClient docker.Client
-	ctrlClient   ctrlclient.Client
-	indexer      *indexer.Indexer
-	buildSource  *BuildSource
-	engineMode   store.EngineMode
+	mu               sync.Mutex
+	st               store.RStore
+	tfl              tiltfile.TiltfileLoader
+	dockerClient     docker.Client
+	ctrlClient       ctrlclient.Client
+	indexer          *indexer.Indexer
+	buildSource      *BuildSource
+	engineMode       store.EngineMode
+	loadStartedCount int // used to synchronize with state
 
 	runs map[types.NamespacedName]*runStatus
 }
@@ -110,28 +111,39 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 		}
 	}
 
-	// If the spec has changed, cancel any existing runs
-	if run != nil && !apicmp.DeepEqual(run.spec, &(tf.Spec)) {
-		run.cancel()
-		delete(r.runs, nn)
-		run = nil
-	}
-
 	step := runStepNone
 	if run != nil {
 		step = run.step
 		ctx = run.entry.WithLogger(ctx, r.st)
 	}
 
-	// Check to see if we have a BuildEntry triggering this tiltfile.
-	//
-	// This is a short-term hack to make this interoperate with the legacy subscriber.
-	// The "right" version would read from FileWatch and other dependencies to determine
-	// when to build.
-	be := r.buildSource.Entry()
-	if be != nil && be.Name.String() == nn.Name && (step == runStepNone || step == runStepDone) {
-		r.startRunAsync(ctx, nn, &tf, be)
-	} else if step == runStepLoaded {
+	// If the tiltfile isn't being run, check to see if anything has triggered a run.
+	if step == runStepNone || step == runStepDone {
+		buttons, err := r.buttons(ctx, &tf)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		fileWatches, err := r.fileWatches(ctx, &tf)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		lastRestartEventTime := r.lastRestartEvent(tf.Spec.RestartOn, fileWatches, buttons)
+		queue, err := r.triggerQueue(ctx)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		be := r.needsBuild(ctx, nn, &tf, run, fileWatches, queue, lastRestartEventTime)
+		if be != nil {
+			r.startRunAsync(ctx, nn, &tf, be)
+		}
+	}
+
+	// If the tiltfile has been loaded, we may still need to copy all its outputs
+	// to the apiserver.
+	if step == runStepLoaded {
 		err := r.handleLoaded(ctx, nn, &tf, run.entry, run.tlr)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -151,6 +163,66 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 	return ctrl.Result{}, nil
 }
 
+// Modeled after BuildController.needsBuild and NextBuildReason(). Check to see that:
+// 1) There's currently no Tiltfile build running,
+// 2) There are pending file changes, and
+// 3) Those files have changed since the last Tiltfile build
+//    (so that we don't keep re-running a failed build)
+// 4) OR the command-line args have changed since the last Tiltfile build
+// 5) OR user has manually triggered a Tiltfile build
+//
+// In some cases, there may be race conditions where a tiltfile has finished executing,
+// but its results haven't bee
+func (r *Reconciler) needsBuild(ctx context.Context, nn types.NamespacedName, tf *v1alpha1.Tiltfile, run *runStatus, fileWatches map[string]*v1alpha1.FileWatch, triggerQueue *v1alpha1.ConfigMap, lastRestartEvent time.Time) *BuildEntry {
+	var reason model.BuildReason
+	filesChanged := []string{}
+
+	step := runStepNone
+	lastStartTime := time.Time{}
+	lastStartArgs := []string{}
+	if run != nil {
+		step = run.step
+		lastStartTime = run.startTime
+		lastStartArgs = run.startArgs
+	}
+
+	if step == runStepNone {
+		reason = reason.With(model.BuildReasonFlagInit)
+	} else {
+		filesChanged = r.filesChanged(tf.Spec.RestartOn, fileWatches, lastStartTime)
+		if len(filesChanged) > 0 {
+			reason = reason.With(model.BuildReasonFlagChangedFiles)
+		} else if lastRestartEvent.After(lastStartTime) {
+			reason = reason.With(model.BuildReasonFlagTriggerUnknown)
+		}
+	}
+
+	userConfigState := model.NewUserConfigState(tf.Spec.Args)
+	if !lastStartTime.IsZero() && !apicmp.DeepEqual(tf.Spec.Args, lastStartArgs) {
+		reason = reason.With(model.BuildReasonFlagTiltfileArgs)
+	}
+
+	if r.inTriggerQueue(triggerQueue, nn) {
+		reason = reason.With(r.triggerQueueReason(triggerQueue, nn))
+	}
+
+	if reason == model.BuildReasonNone {
+		return nil
+	}
+
+	state := r.st.RLockState()
+	defer r.st.RUnlockState()
+
+	return &BuildEntry{
+		Name:                  model.ManifestName(nn.Name),
+		FilesChanged:          filesChanged,
+		BuildReason:           reason,
+		UserConfigState:       userConfigState,
+		TiltfilePath:          tf.Spec.Path,
+		CheckpointAtExecStart: state.LogStore.Checkpoint(),
+	}
+}
+
 // Start a tiltfile run asynchronously, returning immediately.
 func (r *Reconciler) startRunAsync(ctx context.Context, nn types.NamespacedName, tf *v1alpha1.Tiltfile, entry *BuildEntry) {
 	ctx = entry.WithLogger(ctx, r.st)
@@ -163,6 +235,7 @@ func (r *Reconciler) startRunAsync(ctx context.Context, nn types.NamespacedName,
 		spec:      tf.Spec.DeepCopy(),
 		entry:     entry,
 		startTime: time.Now(),
+		startArgs: entry.UserConfigState.Args,
 	}
 	go r.run(ctx, nn, tf, entry)
 }
@@ -231,9 +304,6 @@ func (r *Reconciler) handleLoaded(ctx context.Context, nn types.NamespacedName, 
 	if tlr.Error != nil {
 		logger.Get(ctx).Errorf("%s", tlr.Error.Error())
 	}
-
-	// We've consumed the build entry, and are ready for the next one.
-	r.buildSource.SetEntry(nil)
 
 	r.st.Dispatch(ConfigsReloadedAction{
 		Name:                  entry.Name,
@@ -363,6 +433,7 @@ type runStatus struct {
 	entry      *BuildEntry
 	tlr        *tiltfile.TiltfileLoadResult
 	startTime  time.Time
+	startArgs  []string
 	finishTime time.Time
 }
 
