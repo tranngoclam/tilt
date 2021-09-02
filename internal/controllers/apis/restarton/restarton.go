@@ -1,23 +1,23 @@
-package tiltfile
+package restarton
 
 import (
 	"context"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/tilt-dev/tilt/internal/sliceutils"
 	"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1"
 )
 
-// TODO(nick): This code is needed by anything with a RestartOnSpec.
-// We should find a way to consolidate this.
-
 // Fetch all the buttons that this object depends on.
-func (r *Reconciler) buttons(ctx context.Context, obj *v1alpha1.Tiltfile) (map[string]*v1alpha1.UIButton, error) {
+func Buttons(ctx context.Context, client client.Client, restartOn *v1alpha1.RestartOnSpec, startOn *v1alpha1.StartOnSpec) (map[string]*v1alpha1.UIButton, error) {
 	buttonNames := []string{}
+	if startOn != nil {
+		buttonNames = append(buttonNames, startOn.UIButtons...)
+	}
 
-	restartOn := obj.Spec.RestartOn
 	if restartOn != nil {
 		buttonNames = append(buttonNames, restartOn.UIButtons...)
 	}
@@ -30,7 +30,7 @@ func (r *Reconciler) buttons(ctx context.Context, obj *v1alpha1.Tiltfile) (map[s
 		}
 
 		b := &v1alpha1.UIButton{}
-		err := r.ctrlClient.Get(ctx, types.NamespacedName{Name: n}, b)
+		err := client.Get(ctx, types.NamespacedName{Name: n}, b)
 		if err != nil {
 			return nil, err
 		}
@@ -40,8 +40,7 @@ func (r *Reconciler) buttons(ctx context.Context, obj *v1alpha1.Tiltfile) (map[s
 }
 
 // Fetch all the filewatches that this object depends on.
-func (r *Reconciler) fileWatches(ctx context.Context, obj *v1alpha1.Tiltfile) (map[string]*v1alpha1.FileWatch, error) {
-	restartOn := obj.Spec.RestartOn
+func FileWatches(ctx context.Context, client client.Client, restartOn *v1alpha1.RestartOnSpec) (map[string]*v1alpha1.FileWatch, error) {
 	if restartOn == nil {
 		return nil, nil
 	}
@@ -49,7 +48,7 @@ func (r *Reconciler) fileWatches(ctx context.Context, obj *v1alpha1.Tiltfile) (m
 	result := make(map[string]*v1alpha1.FileWatch, len(restartOn.FileWatches))
 	for _, n := range restartOn.FileWatches {
 		fw := &v1alpha1.FileWatch{}
-		err := r.ctrlClient.Get(ctx, types.NamespacedName{Name: n}, fw)
+		err := client.Get(ctx, types.NamespacedName{Name: n}, fw)
 		if err != nil {
 			return nil, err
 		}
@@ -58,11 +57,36 @@ func (r *Reconciler) fileWatches(ctx context.Context, obj *v1alpha1.Tiltfile) (m
 	return result, nil
 }
 
+// Fetch the last time a start was requested from this target's dependencies.
+func LastStartEvent(startOn *v1alpha1.StartOnSpec, buttons map[string]*v1alpha1.UIButton) (time.Time, *v1alpha1.UIButton) {
+	latestTime := time.Time{}
+	var latestButton *v1alpha1.UIButton
+	if startOn == nil {
+		return time.Time{}, nil
+	}
+
+	for _, bn := range startOn.UIButtons {
+		b, ok := buttons[bn]
+		if !ok {
+			// ignore missing buttons
+			continue
+		}
+		lastEventTime := b.Status.LastClickedAt
+		if !lastEventTime.Time.Before(startOn.StartAfter.Time) && lastEventTime.Time.After(latestTime) {
+			latestTime = lastEventTime.Time
+			latestButton = b
+		}
+	}
+
+	return latestTime, latestButton
+}
+
 // Fetch the last time a restart was requested from this target's dependencies.
-func (r *Reconciler) lastRestartEvent(restartOn *v1alpha1.RestartOnSpec, fileWatches map[string]*v1alpha1.FileWatch, buttons map[string]*v1alpha1.UIButton) time.Time {
+func LastRestartEvent(restartOn *v1alpha1.RestartOnSpec, fileWatches map[string]*v1alpha1.FileWatch, buttons map[string]*v1alpha1.UIButton) (time.Time, *v1alpha1.UIButton) {
 	cur := time.Time{}
+	var latestButton *v1alpha1.UIButton
 	if restartOn == nil {
-		return cur
+		return cur, nil
 	}
 
 	for _, fwn := range restartOn.FileWatches {
@@ -86,16 +110,17 @@ func (r *Reconciler) lastRestartEvent(restartOn *v1alpha1.RestartOnSpec, fileWat
 		lastEventTime := b.Status.LastClickedAt
 		if lastEventTime.Time.After(cur) {
 			cur = lastEventTime.Time
+			latestButton = b
 		}
 	}
 
-	return cur
+	return cur, latestButton
 }
 
 // Fetch the set of files that have changed since the given timestamp.
 // We err on the side of undercounting (i.e., skipping files that may have triggered
 // this build but are not sure).
-func (r *Reconciler) filesChanged(restartOn *v1alpha1.RestartOnSpec, fileWatches map[string]*v1alpha1.FileWatch, lastBuild time.Time) []string {
+func FilesChanged(restartOn *v1alpha1.RestartOnSpec, fileWatches map[string]*v1alpha1.FileWatch, lastBuild time.Time) []string {
 	filesChanged := []string{}
 	for _, fwn := range restartOn.FileWatches {
 		fw, ok := fileWatches[fwn]
