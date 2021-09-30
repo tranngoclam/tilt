@@ -12,6 +12,7 @@ import (
 	"github.com/tilt-dev/tilt/internal/container"
 	"github.com/tilt-dev/tilt/internal/dockercompose"
 	"github.com/tilt-dev/tilt/internal/k8s"
+	"github.com/tilt-dev/tilt/internal/store/k8sconv"
 	"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1"
 	"github.com/tilt-dev/tilt/pkg/model"
 )
@@ -132,27 +133,19 @@ func NewDockerComposeDeployResult(id model.TargetID, containerID container.ID, s
 }
 
 type K8sBuildResult struct {
-	v1alpha1.KubernetesApplyStatus
+	*k8sconv.KubernetesApplyFilter
 
 	id model.TargetID
-
-	// DeployedRefs are references to the objects that we deployed to a Kubernetes cluster.
-	DeployedRefs []v1.ObjectReference
-
-	// Hashes of the pod template specs that we deployed to a Kubernetes cluster.
-	PodTemplateSpecHashes []k8s.PodTemplateSpecHash
 }
 
 func (r K8sBuildResult) TargetID() model.TargetID   { return r.id }
 func (r K8sBuildResult) BuildType() model.BuildType { return model.BuildTypeK8s }
 
 // NewK8sDeployResult creates a deploy result for Kubernetes deploy targets.
-func NewK8sDeployResult(id model.TargetID, status v1alpha1.KubernetesApplyStatus, deployedRefs []v1.ObjectReference, hashes []k8s.PodTemplateSpecHash) K8sBuildResult {
+func NewK8sDeployResult(id model.TargetID, filter *k8sconv.KubernetesApplyFilter) K8sBuildResult {
 	return K8sBuildResult{
 		id:                    id,
-		KubernetesApplyStatus: status,
-		DeployedRefs:          deployedRefs,
-		PodTemplateSpecHashes: hashes,
+		KubernetesApplyFilter: filter,
 	}
 }
 

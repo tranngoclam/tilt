@@ -353,8 +353,8 @@ func (b *fakeBuildAndDeployer) BuildAndDeploy(ctx context.Context, st store.RSto
 	}
 
 	if kTarg := call.k8s(); !kTarg.Empty() {
-		nextK8sResult := b.nextK8sDeployResult(kTarg)
-		err = b.updateKubernetesApplyStatus(ctx, kTarg, nextK8sResult.KubernetesApplyStatus)
+		status, nextK8sResult := b.nextK8sDeployResult(kTarg)
+		err = b.updateKubernetesApplyStatus(ctx, kTarg, *status)
 		if err != nil {
 			return result, err
 		}
@@ -385,7 +385,7 @@ func (b *fakeBuildAndDeployer) updateKubernetesApplyStatus(ctx context.Context, 
 	return b.ctrlClient.Status().Update(ctx, &ka)
 }
 
-func (b *fakeBuildAndDeployer) nextK8sDeployResult(kTarg model.K8sTarget) store.K8sBuildResult {
+func (b *fakeBuildAndDeployer) nextK8sDeployResult(kTarg model.K8sTarget) (*v1alpha1.KubernetesApplyStatus, store.K8sBuildResult) {
 	var err error
 	var deployed []k8s.K8sEntity
 	var templateSpecHashes []k8s.PodTemplateSpecHash
@@ -439,7 +439,11 @@ func (b *fakeBuildAndDeployer) nextK8sDeployResult(kTarg model.K8sTarget) store.
 	require.NoError(b.t, err)
 	status.ResultYAML = resultYAML
 
-	return store.NewK8sDeployResult(kTarg.ID(), status, k8s.ToRefList(deployed), templateSpecHashes)
+	filter := &k8sconv.KubernetesApplyFilter{
+		DeployedRefs:          k8s.ToRefList(deployed),
+		PodTemplateSpecHashes: templateSpecHashes,
+	}
+	return &status, store.NewK8sDeployResult(kTarg.ID(), filter)
 }
 
 func (b *fakeBuildAndDeployer) getOrCreateBuildCompletionChannel(key string) buildCompletionChannel {
@@ -4649,13 +4653,11 @@ func deployResultSet(t testing.TB, manifest model.Manifest, pb podbuilder.PodBui
 	}
 	ktID := manifest.K8sTarget().ID()
 	entities := []k8s.K8sEntity{pb.ObjectTreeEntities().Deployment()}
-	yaml, err := k8s.SerializeSpecYAML(entities)
-	require.NoError(t, err)
-	status := v1alpha1.KubernetesApplyStatus{
-		ResultYAML:    yaml,
-		LastApplyTime: apis.NowMicro(),
+	filter := &k8sconv.KubernetesApplyFilter{
+		DeployedRefs:          k8s.ToRefList(entities),
+		PodTemplateSpecHashes: hashes,
 	}
-	resultSet[ktID] = store.NewK8sDeployResult(ktID, status, k8s.ToRefList(entities), hashes)
+	resultSet[ktID] = store.NewK8sDeployResult(ktID, filter)
 	return resultSet
 }
 
