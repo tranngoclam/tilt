@@ -3,7 +3,6 @@ package local
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,7 +33,7 @@ const AnnotationDepStatus = "tilt.dev/dep-status"
 //   and report it in a standard way.
 type ServerController struct {
 	recentlyCreatedCmd map[string]string
-	createdTriggerTime map[string]time.Time
+	createdTriggerTime map[string]metav1.MicroTime
 	client             ctrlclient.Client
 
 	cmdCount int
@@ -45,7 +44,7 @@ var _ store.Subscriber = &ServerController{}
 func NewServerController(client ctrlclient.Client) *ServerController {
 	return &ServerController{
 		recentlyCreatedCmd: make(map[string]string),
-		createdTriggerTime: make(map[string]time.Time),
+		createdTriggerTime: make(map[string]metav1.MicroTime),
 		client:             client,
 	}
 }
@@ -108,7 +107,7 @@ func (c *ServerController) determineServers(ctx context.Context, st store.RStore
 				Args:           lt.ServeCmd.Argv,
 				Dir:            lt.ServeCmd.Dir,
 				Env:            lt.ServeCmd.Env,
-				TriggerTime:    mt.State.LastSuccessfulDeployTime,
+				TriggerTime:    metav1.NewMicroTime(mt.State.LastSuccessfulDeployTime),
 				ReadinessProbe: lt.ReadinessProbe,
 			},
 		}
@@ -211,7 +210,7 @@ func (c *ServerController) reconcile(ctx context.Context, server CmdServer, owne
 
 	triggerTime := c.createdTriggerTime[name]
 	mostRecent := c.mostRecentCmd(ownedCmds)
-	if mostRecent != nil && equality.Semantic.DeepEqual(mostRecent.Spec, cmdSpec) && triggerTime.Equal(server.Spec.TriggerTime) {
+	if mostRecent != nil && equality.Semantic.DeepEqual(mostRecent.Spec, cmdSpec) && triggerTime.Equal(&server.Spec.TriggerTime) {
 		// We're in the correct state! Nothing to do.
 		return
 	}
@@ -263,27 +262,6 @@ func (c *ServerController) reconcile(ctx context.Context, server CmdServer, owne
 	}
 
 	st.Dispatch(CmdCreateAction{Cmd: cmd})
-}
-
-type CmdServer struct {
-	metav1.ObjectMeta
-
-	Spec   CmdServerSpec
-	Status CmdServerStatus
-}
-
-type CmdServerSpec struct {
-	Args           []string
-	Dir            string
-	Env            []string
-	ReadinessProbe *v1alpha1.Probe
-
-	// Kubernetes tends to represent this as a "generation" field
-	// to force an update.
-	TriggerTime time.Time
-}
-
-type CmdServerStatus struct {
 }
 
 func SpanIDForServeLog(procNum int) logstore.SpanID {

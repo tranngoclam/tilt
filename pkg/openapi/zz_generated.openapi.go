@@ -32,6 +32,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 	return map[string]common.OpenAPIDefinition{
 		"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.Cmd":                             schema_pkg_apis_core_v1alpha1_Cmd(ref),
 		"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.CmdList":                         schema_pkg_apis_core_v1alpha1_CmdList(ref),
+		"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.CmdServer":                       schema_pkg_apis_core_v1alpha1_CmdServer(ref),
+		"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.CmdServerList":                   schema_pkg_apis_core_v1alpha1_CmdServerList(ref),
+		"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.CmdServerSpec":                   schema_pkg_apis_core_v1alpha1_CmdServerSpec(ref),
+		"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.CmdServerStatus":                 schema_pkg_apis_core_v1alpha1_CmdServerStatus(ref),
 		"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.CmdSpec":                         schema_pkg_apis_core_v1alpha1_CmdSpec(ref),
 		"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.CmdStateRunning":                 schema_pkg_apis_core_v1alpha1_CmdStateRunning(ref),
 		"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.CmdStateTerminated":              schema_pkg_apis_core_v1alpha1_CmdStateTerminated(ref),
@@ -316,6 +320,196 @@ func schema_pkg_apis_core_v1alpha1_CmdList(ref common.ReferenceCallback) common.
 		},
 		Dependencies: []string{
 			"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.Cmd", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_core_v1alpha1_CmdServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CmdServer",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.CmdServerSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.CmdServerStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.CmdServerSpec", "github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.CmdServerStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_core_v1alpha1_CmdServerList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CmdServerList",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.CmdServer"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.CmdServer", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_core_v1alpha1_CmdServerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CmdServerSpec defines the desired state of CmdServer",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"args": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Command-line arguments. Must have length at least 1.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"dir": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Process working directory.\n\nIf the working directory is not specified, the command is run in the default Tilt working directory.\n\t// +optional",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"env": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Additional variables process environment.\n\nExpressed as a C-style array of strings of the form [\"KEY1=VALUE1\", \"KEY2=VALUE2\", ...].\n\nEnvironment variables are layered on top of the environment variables that Tilt runs with.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"readinessProbe": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Periodic probe of service readiness.",
+							Ref:         ref("github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.Probe"),
+						},
+					},
+					"triggerTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kubernetes tends to represent this as a \"generation\" field to force an update.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.MicroTime"),
+						},
+					},
+					"disableSource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specifies how to disable this.",
+							Ref:         ref("github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.DisableSource"),
+						},
+					},
+				},
+				Required: []string{"dir"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.DisableSource", "github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.Probe", "k8s.io/apimachinery/pkg/apis/meta/v1.MicroTime"},
+	}
+}
+
+func schema_pkg_apis_core_v1alpha1_CmdServerStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CmdServerStatus defines the observed state of CmdServer",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"disableStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Details about whether/why this is disabled.",
+							Ref:         ref("github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.DisableStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1.DisableStatus"},
 	}
 }
 

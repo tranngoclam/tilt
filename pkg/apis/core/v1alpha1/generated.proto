@@ -49,6 +49,71 @@ message CmdList {
   repeated Cmd items = 2;
 }
 
+// CmdServer
+// +k8s:openapi-gen=true
+message CmdServer {
+  optional k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1;
+
+  optional CmdServerSpec spec = 2;
+
+  optional CmdServerStatus status = 3;
+}
+
+// CmdServerList
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+message CmdServerList {
+  optional k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta metadata = 1;
+
+  repeated CmdServer items = 2;
+}
+
+// CmdServerSpec defines the desired state of CmdServer
+message CmdServerSpec {
+  // Command-line arguments. Must have length at least 1.
+  repeated string args = 1;
+
+  // Process working directory.
+  //
+  // If the working directory is not specified, the command is run
+  // in the default Tilt working directory.
+  // 	// +optional
+  // +tilt:local-path=true
+  optional string dir = 2;
+
+  // Additional variables process environment.
+  //
+  // Expressed as a C-style array of strings of the form ["KEY1=VALUE1", "KEY2=VALUE2", ...].
+  //
+  // Environment variables are layered on top of the environment variables
+  // that Tilt runs with.
+  //
+  // +optional
+  repeated string env = 3;
+
+  // Periodic probe of service readiness.
+  //
+  // +optional
+  optional Probe readinessProbe = 4;
+
+  // Kubernetes tends to represent this as a "generation" field
+  // to force an update.
+  //
+  // +optional
+  optional k8s.io.apimachinery.pkg.apis.meta.v1.MicroTime triggerTime = 5;
+
+  // Specifies how to disable this.
+  //
+  // +optional
+  optional DisableSource disableSource = 6;
+}
+
+// CmdServerStatus defines the observed state of CmdServer
+message CmdServerStatus {
+  // Details about whether/why this is disabled.
+  // +optional
+  optional DisableStatus disableStatus = 1;
+}
+
 // CmdSpec defines how to run a local command.
 message CmdSpec {
   // Command-line arguments. Must have length at least 1.
@@ -769,6 +834,7 @@ message ImageMapStatus {
 // to help other controllers figure out how to watch the apply progress.
 //
 // +k8s:openapi-gen=true
+// +tilt:starlark-gen=true
 message KubernetesApply {
   optional k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1;
 
@@ -899,6 +965,7 @@ message KubernetesApplyStatus {
 
 // KubernetesDiscovery
 // +k8s:openapi-gen=true
+// +tilt:starlark-gen=true
 message KubernetesDiscovery {
   optional k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1;
 

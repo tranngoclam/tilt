@@ -13,4 +13,7 @@ type CmdSpec = v1alpha1.CmdSpec
 type CmdStateWaiting = v1alpha1.CmdStateWaiting
 type CmdStateTerminated = v1alpha1.CmdStateTerminated
 type CmdStateRunning = v1alpha1.CmdStateRunning
+type CmdServer = v1alpha1.CmdServer
+type CmdServerSpec = v1alpha1.CmdServerSpec
+type CmdServerStatus = v1alpha1.CmdServerStatus
 type ObjectMeta = metav1.ObjectMeta
