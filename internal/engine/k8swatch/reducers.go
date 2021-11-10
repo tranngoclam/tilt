@@ -2,7 +2,10 @@ package k8swatch
 
 import (
 	"context"
+	"fmt"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -36,6 +39,8 @@ func UpdateK8sRuntimeState(ctx context.Context, state *store.EngineState, objMet
 	ms := mt.State
 	krs := ms.K8sRuntimeState()
 
+	fmt.Printf("updating k8s runtime state for %s\n", mn)
+	fmt.Printf("pods: %s\n", spew.Sdump(status.Pods))
 	anyPodsUpdated := false
 	seenPods := make(map[k8s.PodID]bool)
 	for i := range status.Pods {

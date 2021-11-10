@@ -109,7 +109,7 @@ import (
 
 var originalWD string
 
-const stdTimeout = 2 * time.Second
+const stdTimeout = 5 * time.Second
 
 type buildCompletionChannel chan bool
 
@@ -751,6 +751,8 @@ func TestRebuildWithChangedFiles(t *testing.T) {
 }
 
 func TestThreeBuilds(t *testing.T) {
+	fmt.Println("------------start test--------------")
+	defer fmt.Println("------------end test--------------")
 	f := newTestFixture(t)
 	defer f.TearDown()
 	manifest := f.newManifest("fe")
@@ -782,6 +784,8 @@ func TestThreeBuilds(t *testing.T) {
 
 	err := f.Stop()
 	assert.NoError(t, err)
+
+	fmt.Println(f.log.String())
 }
 
 func TestRebuildWithSpuriousChangedFiles(t *testing.T) {
@@ -4554,11 +4558,23 @@ func (f *testFixture) LogLines() []string {
 }
 
 func (f *testFixture) TearDown() {
-	if f.T().Failed() {
-		f.withState(func(es store.EngineState) {
-			fmt.Println(es.LogStore.String())
-		})
-	}
+	f.withState(func(es store.EngineState) {
+		fmt.Println(es.LogStore.String())
+	})
+
+	f.withState(func(state store.EngineState) {
+		fmt.Println(spew.Sdump(state))
+	})
+
+	f.withState(func(state store.EngineState) {
+		mt, holds := buildcontrol.NextTargetToBuild(state)
+		if mt == nil {
+			fmt.Println("next mt: nil")
+		} else {
+			fmt.Printf("next mt: %s\n", mt.Manifest.Name)
+		}
+		fmt.Printf("holds: %s\n", spew.Sdump(holds))
+	})
 	f.TempDirFixture.TearDown()
 	f.kClient.TearDown()
 	close(f.fsWatcher.Events)
@@ -4574,6 +4590,7 @@ func (f *testFixture) registerForDeployer(manifest model.Manifest) podbuilder.Po
 
 func (f *testFixture) podEvent(pod *v1.Pod) {
 	f.t.Helper()
+	fmt.Printf("emitting pod event for owner refs %s\n", spew.Sdump(pod.OwnerReferences))
 	for _, ownerRef := range pod.OwnerReferences {
 		_, err := f.kClient.GetMetaByReference(f.ctx, v1.ObjectReference{
 			UID:  ownerRef.UID,

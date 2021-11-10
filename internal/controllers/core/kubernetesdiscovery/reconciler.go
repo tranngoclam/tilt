@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -339,16 +341,20 @@ func (w *Reconciler) updateStatus(ctx context.Context, watcherID watcherID) erro
 		return nil
 	}
 
+	fmt.Printf("kd reconciler updateStatus pods: %s\n", spew.Sdump(status.Pods))
 	kd, err := w.getKubernetesDiscovery(ctx, watcherID)
 	if err != nil {
+		fmt.Printf("error: %s\n", err.Error())
 		return err
 	}
 	if kd == nil {
+		fmt.Printf("no spec\n")
 		// if the spec got deleted, there's nothing to update
 		return nil
 	}
 
 	if !equality.Semantic.DeepEqual(watcher.spec, kd.Spec) {
+		fmt.Printf("spec change, discarding\n")
 		// the spec has changed and we haven't reconciled that change yet; this state update is
 		// outdated, so just discard it
 		return nil
@@ -357,6 +363,7 @@ func (w *Reconciler) updateStatus(ctx context.Context, watcherID watcherID) erro
 	kd.Status = status
 	if err := w.ctrlClient.Status().Update(ctx, kd); err != nil {
 		if apierrors.IsNotFound(err) {
+			fmt.Printf("api not found, discarding\n")
 			// similar to above but for the event that it gets deleted between get + update
 			return nil
 		}
@@ -669,6 +676,7 @@ func (w *Reconciler) dispatchPodChangesLoop(ctx context.Context, ch <-chan k8s.O
 			}
 
 			pod, ok := obj.AsPod()
+			fmt.Printf("got pod change: %s\n", pod.Name)
 			if ok {
 				w.upsertPod(pod)
 				go w.handlePodChange(ctx, pod)

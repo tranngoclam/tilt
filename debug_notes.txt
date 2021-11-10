@@ -1,0 +1,20 @@
+repro pass (probably): go test -v -count 1 -run ThreeBuilds ./internal/engine
+repro failure: go test -count 300 -run ThreeBuilds -failfast ./internal/engine/
+
+current status:
+engine state never observing pod ready after first build
+
+passing test shows:
+```
+emitting pod event for owner refs ([]v1.OwnerReference) (len=1 cap=1) {
+ (v1.OwnerReference) &OwnerReference{Kind:ReplicaSet,Name:fe-replicaset,UID:fe-replicaset-fakeUID,APIVersion:apps/v1,Controller:nil,BlockOwnerDeletion:nil,}
+}
+
+got pod change: fe-fakePodID
+kd reconciler updateStatus pods: ([]v1alpha1.Pod) <nil>
+
+updating k8s runtime state for fe
+pods: ([]v1alpha1.Pod) <nil>
+```
+
+failing test never logs "got pod change"
