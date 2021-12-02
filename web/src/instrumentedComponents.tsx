@@ -63,7 +63,7 @@ export function InstrumentedTextField(
           ...(analyticsTags ?? {}),
         })
       }, textFieldEditDebounceMilliseconds),
-    [analyticsName, analyticsTags]
+    []
   )
 
   const instrumentedOnChange: typeof onChange = (e) => {
